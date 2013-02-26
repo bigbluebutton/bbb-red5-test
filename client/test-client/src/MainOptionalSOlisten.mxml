@@ -1,0 +1,286 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:Application xmlns:fx="http://ns.adobe.com/mxml/2009" 
+			   xmlns:s="library://ns.adobe.com/flex/spark" 
+			   xmlns:mx="library://ns.adobe.com/flex/mx" minWidth="955" minHeight="600"
+			   applicationComplete="applicationComplete(event)"  viewSourceURL="srcview/index.html">
+	<fx:Declarations>
+		<!-- Place non-visual elements (e.g., services, value objects) here -->
+	</fx:Declarations>
+	
+	<fx:Script>
+		<![CDATA[
+			
+			import flash.events.*;
+			import flash.net.*;
+			
+			import mx.events.FlexEvent;
+			import mx.utils.URLUtil;
+			
+			[Bindable] private var rtmpt_server_url:String = "";
+			// UNCOMMENT NEXT LINE TO CHANGE TO rtmp PROTOCOL
+			[Bindable] private var rtmp_server_url:String = "";
+			
+			[Bindable] private var _nc : NetConnection;
+			private var _so : SharedObject;
+			
+			// count of msgs sent & received since application start
+			[Bindable] private var _msg_scount:int = 0;
+			[Bindable] private var _msg_rcount:int = 0;
+			private var _msg_expected_count:int = 0;
+			
+			// Controls "send many messages"
+			
+			// how many messages to send each blast
+			[Bindable] private var _messageCount : String = int(200).toString();
+			
+			// interval between blasts
+			[Bindable] private var _millisecondInterval : String = int(4).toString();
+			
+			// number of blasts
+			[Bindable] private var _blastCnt : String = int(200).toString();	
+			
+			private var myTimer:Timer;
+			
+			
+			private function applicationComplete(event:FlexEvent):void {		
+				var swfURL:String = this.loaderInfo.url;
+				swfURL = swfURL.substr(0, swfURL.lastIndexOf("/") + 1)
+				rtmpt_server_url = URLUtil.replaceProtocol(swfURL,"rtmpt");
+				rtmp_server_url  = URLUtil.replaceProtocol(swfURL,"rtmp");
+				rtmp_server_url  = rtmp_server_url.split(String(":"+URLUtil.getPort(rtmp_server_url))).join("");
+				sendBtn.enabled = false;
+				sendManyBtn.enabled = false;				
+				//sendBtn.addEventListener(MouseEvent.CLICK, onClickSendBtn);
+				explain.text="To run test:\n - Select the protocol you want (RTMPT/RTMP) and wait for connect.\n" +
+					"- Select the number of msgs per blast\n" +
+					"- Select the interval between blasts (ms)\n"+
+					"- Select the number of blasts.\n"+
+					"- Click 'Send many messages' to run test\n"+
+					"The default values usually fail on my system with RTMPT. (You may need to click the test more than once.)\n"+
+					"I have never seen RTMP fail.\n"+
+					"EXPECTED RESULT: you will see NetConnection.Connect.Closed in status window."+
+					"Somtimes, the received message count will not match the sent message count, but the NetConnection status will not show as closed, and everything is stopped. This is rare, but checking the red5 server log shows that the server thinks the connection is closed."+
+					"Sometimes the server will get exceptions after the it announces the connection is closed. I guess this is attempting to handle messages after the connection is closed and the server shared object instance is deleted (?)."
+			}			
+			
+			
+			private function connect(server_url:String):void {
+				statusOutput.text = "Connecting to: "+server_url +"\n";
+				_nc = new NetConnection();
+				_nc.maxPeerConnections = 1;
+				_nc.addEventListener(NetStatusEvent.NET_STATUS, netStatusHandler);
+				_nc.addEventListener(SecurityErrorEvent.SECURITY_ERROR, securityErrorHandler);
+				_nc.addEventListener(AsyncErrorEvent.ASYNC_ERROR,asyncErrorHandler);				
+				_nc.client = this;
+				_nc.connect(server_url);
+				toggleSO();
+				
+				//nc.connect("rtmp://10.1.1.11/Red5Chat2");
+				
+			}	
+			
+			private function closeSO():void {
+				if(_so != null) {
+					_so.close();
+					_so = null;	
+				}					
+			}
+			
+			private function toggleSO():void {
+				if (soCB.selected) {
+					openSO();
+				} else {
+					closeSO();
+				}
+			
+			}	
+			
+			private function openSO():void {
+				_so = SharedObject.getRemote("message", _nc.uri, false);
+				_so.client    = this;
+				_so.connect(_nc);		
+			}	
+
+			private function close():void{
+				if (_nc != null) {
+					stopTimer();
+					closeSO();
+					_nc.close();
+					_msg_scount = 0;
+					_msg_rcount = 0;
+					_msg_expected_count = 0;
+					outputTf.text = "";
+					statusOutput.text = "";
+				}
+			}
+			
+			private function handleRTMP(event:Event):void {
+				close();
+				rtmp_server_url = rtmpUrl.text;
+				connect(rtmp_server_url);
+			}
+			
+			private function handleRTMPT(event:Event):void {
+				close();
+				rtmpt_server_url = rtmptUrl.text;
+				connect(rtmpt_server_url);
+			}			
+			
+			public function onBWCheck(...rest):Number {
+				return 0;
+			}
+			
+			public function onBWDone(...rest):void {
+				var p_bw:Number;
+				if (rest.length > 0){
+					p_bw = rest[0];
+				}
+				trace("bandwidth = " + p_bw + " Kbps.");
+			}	
+			
+			//private function randomString(resultLen:uint = 20, supplied_alphabet:String = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"):String{
+			//	return "MSG_"+_msg_scount.toString()+"_XXX";
+			//	var alphabet_chars:Array = supplied_alphabet.split("");
+			//	var alphabet_chars_length:int = alphabet_chars.length;
+			//	var theString:String = "";
+			//	while (theString.length < resultLen) {
+			//		theString += alphabet_chars[int(Math.floor(Math.random() * alphabet_chars_length))];
+			//	}
+			//	return theString;
+			//}
+			
+			private function sendManyMessages() : void {
+				_messageCount = _messageCountLabel.text;
+				myTimer = new Timer(int(_millisecondIntervalLabel.text),int(_blastCntLabel.text));
+				myTimer.addEventListener(TimerEvent.TIMER, sendMessageEvent);
+				myTimer.start();
+			}			
+			
+			private function sendMessageEvent(e:TimerEvent):void {
+				for(var i:int = 1; i <=  int(_messageCount); i++) {
+					//var msg:String = randomString();
+					_msg_scount = _msg_scount + 1;
+					_nc.call("sendMessage", null, _msg_scount);
+					//_so.send("receiveMessage", _msg_scount);
+					
+				}
+			}			
+			
+			private function onClickSendBtn():void {
+				_msg_scount = _msg_scount + 1;
+				_nc.call("sendMessage", null, _msg_scount);
+				//_so.send("receiveMessage", _msg_scount);
+			}
+			
+			public function receiveMessage(mesg:int):void {
+				_msg_rcount = _msg_rcount + 1;
+				// display every 100th msg or if the msg sent count matches the msg recvd count.
+				// If every msg is displayed, the system slows down and failures dont happen.
+				if ((_msg_rcount == _msg_scount) || (0 == (_msg_rcount % 100))) {
+					outputTf.text += _msg_rcount.toString() + ": " + String(mesg)+"\n";
+				}
+				if (_msg_expected_count != (mesg - 1)) {
+					statusOutput.text += "expected : "+ 	String(_msg_expected_count) + 
+						", received: "+ String(mesg) + "\n"
+				}
+				_msg_expected_count = mesg;
+			}
+			
+			private function asyncErrorHandler(event:AsyncErrorEvent):void {
+				statusOutput.text += "asyncErrorHandler \n";
+				statusOutput.text += event.text + "\n------------------------------------------\n\n";			
+			}
+			
+			private function stopTimer():void {
+				if (myTimer) {
+					myTimer.removeEventListener(TimerEvent.TIMER, sendMessageEvent);
+					myTimer.stop();
+				}
+			}
+			
+			private function netStatusHandler(event:NetStatusEvent):void {
+				statusOutput.text += "netStatusHandler \n";				
+				if (event.info !== '' || event.info !== null) { 
+					switch (event.info.code) {
+						case "NetConnection.Connect.Success":  					
+							sendBtn.enabled = true;
+							sendManyBtn.enabled = true;
+							break;
+						case "NetConnection.Connect.Closed":  		
+							stopTimer();
+							sendBtn.enabled = false;
+							sendManyBtn.enabled = false;	
+							// update text field with latest received count
+							outputTf.text += _msg_rcount.toString()
+							break;
+					}
+				}
+				for ( var prop:String in event.info) {
+					statusOutput.text += "prop : "+prop+" = "+event.info[prop]+"\n";					
+				}
+				statusOutput.text += event.info.code+"\n------------------------------------------\n\n";
+			}			
+			
+			private function securityErrorHandler(event:SecurityErrorEvent):void {
+				statusOutput.text += "securityErrorHandler \n";
+				
+				for (var prop:String in event) 
+				{
+					statusOutput.text += "prop "+prop+" = "+event[prop]+"\n";
+				}
+				statusOutput.text += "\n------------------------------------------\n\n";
+			}
+			
+		]]>		
+	</fx:Script>
+	<mx:HBox>	
+		<mx:VBox>
+			<mx:VBox borderStyle="solid" paddingLeft="10" paddingRight="10" paddingTop="10" paddingBottom="10">			
+				<mx:TextArea  width="580" height="437" id="outputTf" />
+				<mx:HBox>
+					<mx:TextInput id="messageTf" text="test"                          />
+					<mx:Button  label="Send" id="sendBtn"  click="onClickSendBtn()" enabled="{_nc.connected}" />	
+				</mx:HBox> 	
+			</mx:VBox> 			
+			<mx:HBox  width="603" borderStyle="solid" paddingLeft="10" paddingRight="10" paddingTop="10" paddingBottom="10">	
+				<mx:Button id="sendManyBtn" label="Send many messages" click="sendManyMessages()" enabled="{_nc.connected}"  />	
+				<mx:Label text="Msgs per Blast"                                                         />
+				<mx:TextInput width="50" text="{_messageCount}" id="_messageCountLabel"                  />	
+				<mx:Label text="Interval(ms)"                                                           />
+				<mx:TextInput  width="50"  text="{_millisecondInterval}" id="_millisecondIntervalLabel" />	
+				<mx:Label text="Blast Count"                                                            />
+				<mx:TextInput  width="50" text="{_blastCnt}" id="_blastCntLabel"                        />	
+			</mx:HBox>
+			<mx:HBox  width="603" borderStyle="solid" paddingLeft="10" paddingRight="10" paddingTop="10" paddingBottom="10">	                     
+				<mx:Label text="Msgs sent:"                                />
+				<mx:TextInput width="50" text="{_msg_scount}"              />	
+				<mx:Label text="Msgs rcvd:"                                />
+				<mx:TextInput width="50" text="{_msg_rcount}"              />
+				<mx:CheckBox id="soCB" click="toggleSO();" selected="true" label="Listen to SharedObject?" />
+			</mx:HBox>
+			<mx:HBox  width="603" borderStyle="solid" paddingLeft="10" paddingRight="10" paddingTop="10" paddingBottom="10">
+				<mx:Label width="20"                                       />
+				<mx:RadioButton groupName="connectType" 
+								id="rtmpt"
+								label="RTMPT" 
+								click="handleRTMPT(event);"
+								/>
+				<mx:TextArea  width="200" id="rtmptUrl" text="{rtmpt_server_url}" /> 
+				<mx:RadioButton groupName="connectType" 
+								id="rtmp"
+								label="RTMP" 
+								click="handleRTMP(event);"
+								/>	
+				<mx:TextArea width="200" id="rtmpUrl" text="{rtmp_server_url}" /> 
+			</mx:HBox>			
+		</mx:VBox>
+		<mx:VBox>			
+			<mx:TextArea  width="320" height="437" id="statusOutput" />
+			<mx:TextArea  width="320" height="219" id="explain" />
+		</mx:VBox>
+	</mx:HBox>
+	
+</s:Application>
+
+
+
