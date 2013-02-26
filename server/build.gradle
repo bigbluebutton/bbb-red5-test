@@ -105,12 +105,6 @@ test {
     useTestNG()
 }
 
-war.doLast {
-  ant.unzip(src: war.archivePath, dest: "$buildDir/bbbtest")
-  ant.copy(file: "$buildDir/bbbtest/WEB-INF/logback-bbbtest.xml", todir: "$buildDir/bbbtest/WEB-INF/classes")
-}
-
-
 task deploy() << {
 	def red5AppsDir = '/usr/share/red5/webapps'
 	def bbbtestDir = new File("${red5AppsDir}/bbbtest")
