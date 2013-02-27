@@ -105,6 +105,10 @@ test {
     useTestNG()
 }
 
+war.doLast {
+  ant.unzip(src: war.archivePath, dest: "$buildDir/bbbtest")
+}
+
 task deploy() << {
 	def red5AppsDir = '/usr/share/red5/webapps'
 	def bbbtestDir = new File("${red5AppsDir}/bbbtest")

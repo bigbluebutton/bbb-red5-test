@@ -44,6 +44,6 @@ with BigBlueButton; if not, see <http://www.gnu.org/licenses/>.
 		<property name="virtualHosts" value="${webapp.virtualHosts}" />
 	</bean>
 
-	<bean id="web.handler" class="org.bigbluebutton.app.BBbTestApplication">
+	<bean id="web.handler" class="MultithreadApplication">
 	</bean>
 </beans>
