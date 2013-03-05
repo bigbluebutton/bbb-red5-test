@@ -18,16 +18,7 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	private IConnection conn;
 	
 	private AtomicInteger counter = new AtomicInteger();
-	
-	/** {@inheritDoc} */
-	@Override
-	public boolean connect(IConnection conn, IScope scope, Object[] params) {
-		appScope = scope;
-		this.conn = conn;
-		createSharedObject(appScope, "message", false);
-		return super.connect(conn, scope, params);
-	}
-	
+		
 	/** {@inheritDoc} */
 	@Override
 	public void disconnect(IConnection conn, IScope scope) {
@@ -49,6 +40,7 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	
 	@Override
 	public boolean appStart(IScope app) {
+		
 		System.out.println("**************** App Start ****************************");
 		return super.appStart(app);
 	}
@@ -82,12 +74,15 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 
 	@Override
 	public boolean roomStart(IScope room) {
+		appScope = room;
+		createSharedObject(appScope, "message", false);
 		System.out.println("**************** Room Start ****************************");
 		return super.roomStart(room);
 	}
 
 	@Override
 	public boolean roomConnect(IConnection conn, Object[] params) {
+		this.conn = conn;
 		System.out.println("**************** Room Connect ****************************");
 		return super.roomConnect(conn, params);
 	}
