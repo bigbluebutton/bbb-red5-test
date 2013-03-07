@@ -14,7 +14,7 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 
 	private static final Logger log = LoggerFactory.getLogger(MultithreadApplication.class);
 
-	private IScope appScope;
+	private IScope bbbScope;
 	private IConnection conn;
 	
 	private AtomicInteger counter = new AtomicInteger();
@@ -30,17 +30,21 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	public void sendMessage(List<String> params) {
 		// increment our local receive counter
 		counter.getAndIncrement();
-		ISharedObject so = getSharedObject(appScope, "message");
+//		ISharedObject so = getSharedObject(bbbScope, "message");
+		ISharedObject so = getSharedObject(conn.getScope(), "message");
 		if (so != null) {
-			so.sendMessage("receiveMessage", params);
+//			so.sendMessage("receiveMessage", params);
 		}		
 		
-//		ServiceUtils.(conn, "receiveMessage", params.toArray());
+		if (counter.intValue() % 1000 == 0) {
+			System.out.println("Received message [" + counter + "]");
+		}
+		
+		ServiceUtils.invokeOnAllScopeConnections(bbbScope, "receiveMessage", params.toArray(), null);
 	}
 	
 	@Override
-	public boolean appStart(IScope app) {
-		
+	public boolean appStart(IScope app) {		
 		System.out.println("**************** App Start ****************************");
 		return super.appStart(app);
 	}
@@ -74,10 +78,11 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 
 	@Override
 	public boolean roomStart(IScope room) {
-		appScope = room;
-		createSharedObject(appScope, "message", false);
 		System.out.println("**************** Room Start ****************************");
-		return super.roomStart(room);
+		boolean started = super.roomStart(room);
+		bbbScope = room;
+		//createSharedObject(room, "message", false);
+		return started;
 	}
 
 	@Override
