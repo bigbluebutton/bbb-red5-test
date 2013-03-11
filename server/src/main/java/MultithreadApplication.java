@@ -30,17 +30,20 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	public void sendMessage(List<String> params) {
 		// increment our local receive counter
 		counter.getAndIncrement();
-//		ISharedObject so = getSharedObject(bbbScope, "message");
-		ISharedObject so = getSharedObject(conn.getScope(), "message");
-		if (so != null) {
-//			so.sendMessage("receiveMessage", params);
-		}		
 		
 		if (counter.intValue() % 1000 == 0) {
 			System.out.println("Received message [" + counter + "]");
 		}
 		
-		ServiceUtils.invokeOnAllScopeConnections(bbbScope, "receiveMessage", params.toArray(), null);
+//		ISharedObject so = getSharedObject(bbbScope, "message");
+		ISharedObject so = getSharedObject(conn.getScope(), "message");
+		if (so != null) {
+			so.sendMessage("receiveMessage", params);
+		}		
+		
+
+		
+//		ServiceUtils.invokeOnAllScopeConnections(bbbScope, "receiveMessage", params.toArray(), null);
 	}
 	
 	@Override
