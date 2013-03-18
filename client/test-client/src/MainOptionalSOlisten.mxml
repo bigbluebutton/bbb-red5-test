@@ -31,7 +31,7 @@
 			// Controls "send many messages"
 			
 			// how many messages to send each blast
-			[Bindable] private var _messageCount : String = int(200).toString();
+			[Bindable] private var _messageCount : String = int(20).toString();
 			
 			// interval between blasts
 			[Bindable] private var _millisecondInterval : String = int(4).toString();
