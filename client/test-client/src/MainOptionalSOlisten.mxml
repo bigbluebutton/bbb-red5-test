@@ -160,7 +160,7 @@
 				for(var i:int = 1; i <=  int(_messageCount); i++) {
 					//var msg:String = randomString();
 					_msg_scount = _msg_scount + 1;
-					_nc.call("sendMessage", null, _msg_scount);
+					_nc.call("sendMessage", null, _msg_scount, soCB.selected);
 					//_so.send("receiveMessage", _msg_scount);
 					
 				}
@@ -168,7 +168,7 @@
 			
 			private function onClickSendBtn():void {
 				_msg_scount = _msg_scount + 1;
-				_nc.call("sendMessage", null, _msg_scount);
+				_nc.call("sendMessage", null, _msg_scount, soCB.selected);
 				//_so.send("receiveMessage", _msg_scount);
 			}
 			

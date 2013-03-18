@@ -1,49 +1,47 @@
-import java.util.List;
+import java.util.ArrayList;
 import java.util.concurrent.atomic.*;
 import org.red5.server.adapter.*;
 import org.red5.server.api.IClient;
 import org.red5.server.api.IConnection;
+import org.red5.server.api.Red5;
 import org.red5.server.api.scope.IScope;
 import org.red5.server.api.service.ServiceUtils;
 import org.red5.server.api.so.ISharedObject;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 
-	private static final Logger log = LoggerFactory.getLogger(MultithreadApplication.class);
-
-	private IScope bbbScope;
-	private IConnection conn;
-	
-	private AtomicInteger counter = new AtomicInteger();
-		
 	/** {@inheritDoc} */
 	@Override
 	public void disconnect(IConnection conn, IScope scope) {
+		AtomicInteger counter = (AtomicInteger) Red5.getConnectionLocal().getAttribute("msgCounter");
+		System.out.println("Disconnect: id=[" + Red5.getConnectionLocal().getClient().getId() + "] msgCount=[" + counter.get() + "]");
+		
 		super.disconnect(conn, scope);
-		log.info("Message counter: {}", counter.get());
 		//System.exit(9999);
 	}
 	
-	public void sendMessage(List<String> params) {
+	public void sendMessage(String msg, Boolean useSO) {
+		AtomicInteger counter = (AtomicInteger) Red5.getConnectionLocal().getAttribute("msgCounter");
+		
 		// increment our local receive counter
 		counter.getAndIncrement();
 		
 		if (counter.intValue() % 1000 == 0) {
-			System.out.println("Received message [" + counter + "]");
+			System.out.println("Received message id=[" + Red5.getConnectionLocal().getClient().getId() 
+					+ "] msgCount=[" + counter.get() + "] useSO=" + useSO);
 		}
 		
-//		ISharedObject so = getSharedObject(bbbScope, "message");
-		ISharedObject so = getSharedObject(conn.getScope(), "message");
-		if (so != null) {
-			so.sendMessage("receiveMessage", params);
-		}		
+		ArrayList<String> args = new ArrayList<String>();
+		args.add(msg);
 		
-
-		
-//		ServiceUtils.invokeOnAllScopeConnections(bbbScope, "receiveMessage", params.toArray(), null);
+		if (useSO) {
+			ISharedObject so = getSharedObject(Red5.getConnectionLocal().getScope(), "message");
+			if (so != null) {
+				so.sendMessage("receiveMessage", args);
+			}					
+		} else {
+			ServiceUtils.invokeOnAllScopeConnections(Red5.getConnectionLocal().getScope(), "receiveMessage", args.toArray(), null);
+		}
 	}
 	
 	@Override
@@ -82,15 +80,15 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	@Override
 	public boolean roomStart(IScope room) {
 		System.out.println("**************** Room Start ****************************");
-		boolean started = super.roomStart(room);
-		bbbScope = room;
-		//createSharedObject(room, "message", false);
-		return started;
+		
+		AtomicInteger counter = new AtomicInteger();
+		Red5.getConnectionLocal().setAttribute("msgCounter", counter);
+		
+		return super.roomStart(room);
 	}
 
 	@Override
 	public boolean roomConnect(IConnection conn, Object[] params) {
-		this.conn = conn;
 		System.out.println("**************** Room Connect ****************************");
 		return super.roomConnect(conn, params);
 	}
