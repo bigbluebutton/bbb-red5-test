@@ -46,13 +46,13 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	
 	@Override
 	public boolean appStart(IScope app) {		
-		System.out.println("**************** App Start ****************************");
+		System.out.println("**************** App Start [" + app.getName() + "] ****************************");
 		return super.appStart(app);
 	}
 
 	@Override
 	public boolean appConnect(IConnection conn, Object[] params) {
-		System.out.println("**************** App Connect ****************************");
+		System.out.println("**************** App Connect [" + conn.getScope().getName() + "] ****************************");
 		return super.appConnect(conn, params);
 	}
 
@@ -79,7 +79,7 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 
 	@Override
 	public boolean roomStart(IScope room) {
-		System.out.println("**************** Room Start ****************************");
+		System.out.println("**************** Room Start [ " + room.getName() + "] ****************************");
 		
 		AtomicInteger counter = new AtomicInteger();
 		Red5.getConnectionLocal().setAttribute("msgCounter", counter);
@@ -89,31 +89,31 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 
 	@Override
 	public boolean roomConnect(IConnection conn, Object[] params) {
-		System.out.println("**************** Room Connect ****************************");
+		System.out.println("**************** Room Connect [" + conn.getScope().getName() + "] ****************************");
 		return super.roomConnect(conn, params);
 	}
 
 	@Override
 	public boolean roomJoin(IClient client, IScope room) {
-		System.out.println("**************** Room Join ****************************");
+		System.out.println("**************** Room Join [" + room.getName() + "] ****************************");
 		return super.roomJoin(client, room);		
 	}
 
 	@Override
 	public void roomDisconnect(IConnection conn) {
-		System.out.println("**************** Room Disconnect ****************************");
+		System.out.println("**************** Room Disconnect [" + conn.getScope().getName() + "] ****************************");
 		super.roomDisconnect(conn);			
 	}
 
 	@Override
 	public void roomLeave(IClient client, IScope room) {
-		System.out.println("**************** Room Leave ****************************");
+		System.out.println("**************** Room Leave [" + room.getName() + "] ****************************");
 		super.roomLeave(client, room);			
 	}
 
 	@Override
 	public void roomStop(IScope room) {
-		System.out.println("**************** Room Stop ****************************");
+		System.out.println("**************** Room Stop [" + room.getName() + "] ****************************");
 		super.roomStop(room);				
 	}
 }
