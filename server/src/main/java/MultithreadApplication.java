@@ -17,10 +17,13 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 		System.out.println("Disconnect: id=[" + Red5.getConnectionLocal().getClient().getId() + "] msgCount=[" + counter.get() + "]");
 		
 		super.disconnect(conn, scope);
-		//System.exit(9999);
 	}
 	
-	public void sendMessage(String msg, Boolean useSO) {
+	public void sendMessage(String msg, String nextMsg) {
+		sendMessage(msg, nextMsg, false);
+	}	
+	
+	public void sendMessage(String msg, String nextMsg, Boolean useSO) {
 		AtomicInteger counter = (AtomicInteger) Red5.getConnectionLocal().getAttribute("msgCounter");
 		
 		// increment our local receive counter
@@ -33,7 +36,7 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 		
 		ArrayList<String> args = new ArrayList<String>();
 		args.add(msg);
-		
+		args.add(nextMsg);
 		if (useSO) {
 			ISharedObject so = getSharedObject(Red5.getConnectionLocal().getScope(), "message");
 			if (so != null) {
@@ -59,6 +62,10 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	@Override
 	public boolean appJoin(IClient client, IScope app) {
 		System.out.println("**************** App Join ****************************");
+		
+		AtomicInteger counter = new AtomicInteger();
+		Red5.getConnectionLocal().setAttribute("msgCounter", counter);
+		
 		return super.appJoin(client, app);
 	}
 
@@ -81,9 +88,6 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	public boolean roomStart(IScope room) {
 		System.out.println("**************** Room Start [ " + room.getName() + "] ****************************");
 		
-		AtomicInteger counter = new AtomicInteger();
-		Red5.getConnectionLocal().setAttribute("msgCounter", counter);
-		
 		return super.roomStart(room);
 	}
 
@@ -96,6 +100,12 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	@Override
 	public boolean roomJoin(IClient client, IScope room) {
 		System.out.println("**************** Room Join [" + room.getName() + "] ****************************");
+		
+		if (!Red5.getConnectionLocal().hasAttribute("msgCounter")) {
+			AtomicInteger counter = new AtomicInteger();
+			Red5.getConnectionLocal().setAttribute("msgCounter", counter);		
+		}
+		
 		return super.roomJoin(client, room);		
 	}
 

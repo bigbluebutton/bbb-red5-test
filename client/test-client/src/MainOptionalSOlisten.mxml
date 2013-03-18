@@ -27,7 +27,8 @@
 			[Bindable] private var _msg_scount:int = 0;
 			[Bindable] private var _msg_rcount:int = 0;
 			private var _msg_expected_count:int = 0;
-			
+			private var _next_msg_expected:int = 0;
+      
 			// Controls "send many messages"
 			
 			// how many messages to send each blast
@@ -137,18 +138,7 @@
 				}
 				trace("bandwidth = " + p_bw + " Kbps.");
 			}	
-			
-			//private function randomString(resultLen:uint = 20, supplied_alphabet:String = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"):String{
-			//	return "MSG_"+_msg_scount.toString()+"_XXX";
-			//	var alphabet_chars:Array = supplied_alphabet.split("");
-			//	var alphabet_chars_length:int = alphabet_chars.length;
-			//	var theString:String = "";
-			//	while (theString.length < resultLen) {
-			//		theString += alphabet_chars[int(Math.floor(Math.random() * alphabet_chars_length))];
-			//	}
-			//	return theString;
-			//}
-			
+						
 			private function sendManyMessages() : void {
 				_messageCount = _messageCountLabel.text;
 				myTimer = new Timer(int(_millisecondIntervalLabel.text),int(_blastCntLabel.text));
@@ -160,9 +150,7 @@
 				for(var i:int = 1; i <=  int(_messageCount); i++) {
 					//var msg:String = randomString();
 					_msg_scount = _msg_scount + 1;
-					_nc.call("sendMessage", null, _msg_scount, soCB.selected);
-					//_so.send("receiveMessage", _msg_scount);
-					
+					_nc.call("sendMessage", null, _msg_scount, _msg_scount + 1, soCB.selected);					
 				}
 			}			
 			
@@ -172,20 +160,32 @@
 				//_so.send("receiveMessage", _msg_scount);
 			}
 			
-			public function receiveMessage(mesg:int):void {
+      private var nextMsgInited:Boolean = false;
+      
+			public function receiveMessage(mesg:int, nextMsg:int):void {
 				_msg_rcount = _msg_rcount + 1;
+        
+        if (! nextMsgInited) {
+          nextMsgInited = true;
+          _next_msg_expected = nextMsg;
+        } else {
+          if (_next_msg_expected != mesg) {
+            statusOutput.text += "expected : "+ 	String(_next_msg_expected) + 
+              ", received: "+ String(mesg) + "\n"
+          }          
+        }
+        
         if (_msg_rcount < 10) {
           outputTf.text += _msg_rcount.toString() + ": " + String(mesg)+"\n";
         }
+        
 				// display every 100th msg or if the msg sent count matches the msg recvd count.
 				// If every msg is displayed, the system slows down and failures dont happen.
 				if ((_msg_rcount == _msg_scount) || (0 == (_msg_rcount % 100))) {
 					outputTf.text += _msg_rcount.toString() + ": " + String(mesg)+"\n";
 				}
-				if (_msg_expected_count != (mesg - 1)) {
-					statusOutput.text += "expected : "+ 	String(_msg_expected_count) + 
-						", received: "+ String(mesg) + "\n"
-				}
+              
+        _next_msg_expected = nextMsg;
 				_msg_expected_count = mesg;
 			}
 			
