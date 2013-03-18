@@ -1,4 +1,6 @@
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.*;
 import org.red5.server.adapter.*;
 import org.red5.server.api.IClient;
@@ -10,30 +12,28 @@ import org.red5.server.api.so.ISharedObject;
 
 public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 
-	/** {@inheritDoc} */
-	@Override
-	public void disconnect(IConnection conn, IScope scope) {
-		AtomicInteger counter = (AtomicInteger) Red5.getConnectionLocal().getAttribute("msgCounter");
-		System.out.println("Disconnect: id=[" + Red5.getConnectionLocal().getClient().getId() + "] msgCount=[" + counter.get() + "]");
+	private final Map<String, AtomicInteger> counters = new HashMap<String, AtomicInteger>();
 		
-		super.disconnect(conn, scope);
-	}
-	
 	public void sendMessage(String msg, String nextMsg) {
 		sendMessage(msg, nextMsg, false);
 	}	
 	
 	public void sendMessage(String msg, String nextMsg, Boolean useSO) {
-		AtomicInteger counter = (AtomicInteger) Red5.getConnectionLocal().getAttribute("msgCounter");
+		String scopeName = Red5.getConnectionLocal().getScope().getName();
 		
-		// increment our local receive counter
-		counter.getAndIncrement();
-		
-		if (counter.intValue() % 1000 == 0) {
-			System.out.println("Received message id=[" + Red5.getConnectionLocal().getClient().getId() 
-					+ "] msgCount=[" + counter.get() + "] useSO=" + useSO);
+		if (counters.containsKey(scopeName)) {
+			AtomicInteger counter = (AtomicInteger) counters.get(scopeName);
+			// increment our local receive counter
+			counter.getAndIncrement();
+			
+			if (counter.intValue() % 1000 == 0) {
+				System.out.println("Received message id=[" + Red5.getConnectionLocal().getClient().getId() 
+						+ "] msgCount=[" + counter.get() + "] useSO=" + useSO);
+			}
+		} else {
+			System.out.println("Cannot find counter for scope [" + scopeName + "]");
 		}
-		
+			
 		ArrayList<String> args = new ArrayList<String>();
 		args.add(msg);
 		args.add(nextMsg);
@@ -63,9 +63,6 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	public boolean appJoin(IClient client, IScope app) {
 		System.out.println("**************** App Join ****************************");
 		
-		AtomicInteger counter = new AtomicInteger();
-		Red5.getConnectionLocal().setAttribute("msgCounter", counter);
-		
 		return super.appJoin(client, app);
 	}
 
@@ -88,6 +85,10 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	public boolean roomStart(IScope room) {
 		System.out.println("**************** Room Start [ " + room.getName() + "] ****************************");
 		
+		if (!counters.containsKey(room.getName())) {
+			AtomicInteger counter = new AtomicInteger();
+			counters.put(room.getName(), counter);
+		}
 		return super.roomStart(room);
 	}
 
@@ -100,12 +101,7 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	@Override
 	public boolean roomJoin(IClient client, IScope room) {
 		System.out.println("**************** Room Join [" + room.getName() + "] ****************************");
-		
-		if (!Red5.getConnectionLocal().hasAttribute("msgCounter")) {
-			AtomicInteger counter = new AtomicInteger();
-			Red5.getConnectionLocal().setAttribute("msgCounter", counter);		
-		}
-		
+				
 		return super.roomJoin(client, room);		
 	}
 
@@ -124,6 +120,12 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 	@Override
 	public void roomStop(IScope room) {
 		System.out.println("**************** Room Stop [" + room.getName() + "] ****************************");
+		
+		if (counters.containsKey(room.getName())) {
+			AtomicInteger counter = counters.remove(room.getName());
+			System.out.println("Room Stop: room=[" + room.getName() + "] msgCount=[" + counter.get() + "]");
+		}
+		
 		super.roomStop(room);				
 	}
 }
