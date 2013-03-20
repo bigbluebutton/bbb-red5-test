@@ -14,15 +14,27 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 
 	private final Map<String, AtomicInteger> counters = new HashMap<String, AtomicInteger>();
 		
-	public void sendMessage(String msg, String nextMsg) {
-		sendMessage(msg, nextMsg, false);
+	public void sendMessage() {
+		sendMessage(false);
 	}	
 	
-	public void sendMessage(String msg, String nextMsg, Boolean useSO) {
+	public void sendMessage(Boolean useSO) {
 		String scopeName = Red5.getConnectionLocal().getScope().getName();
 		
 		if (counters.containsKey(scopeName)) {
 			AtomicInteger counter = (AtomicInteger) counters.get(scopeName);
+			int curCounter = counter.get();
+			ArrayList<String> args = new ArrayList<String>();
+			args.add(new Integer(curCounter).toString());
+			args.add(new Integer(curCounter + 1).toString());
+			if (useSO) {
+				ISharedObject so = getSharedObject(Red5.getConnectionLocal().getScope(), "message");
+				if (so != null) {
+					so.sendMessage("receiveMessage", args);
+				}					
+			} else {
+				ServiceUtils.invokeOnAllScopeConnections(Red5.getConnectionLocal().getScope(), "receiveMessage", args.toArray(), null);
+			}
 			// increment our local receive counter
 			counter.getAndIncrement();
 			
@@ -34,17 +46,6 @@ public class MultithreadApplication extends MultiThreadedApplicationAdapter {
 			System.out.println("Cannot find counter for scope [" + scopeName + "]");
 		}
 			
-		ArrayList<String> args = new ArrayList<String>();
-		args.add(msg);
-		args.add(nextMsg);
-		if (useSO) {
-			ISharedObject so = getSharedObject(Red5.getConnectionLocal().getScope(), "message");
-			if (so != null) {
-				so.sendMessage("receiveMessage", args);
-			}					
-		} else {
-			ServiceUtils.invokeOnAllScopeConnections(Red5.getConnectionLocal().getScope(), "receiveMessage", args.toArray(), null);
-		}
 	}
 	
 	@Override
